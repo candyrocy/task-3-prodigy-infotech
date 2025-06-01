@@ -1,0 +1,65 @@
+import os
+import numpy as np
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+data_dir = "C:/Users/Varon/desktop/vardens/"
+img_size = (224, 224)
+batch_size = 100
+
+datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
+    validation_split=0.2
+)
+
+train_generator = datagen.flow_from_directory(
+    data_dir,
+    target_size=img_size,
+    batch_size=batch_size,
+    class_mode='sparse',
+    subset="training",
+    shuffle=True
+)
+
+val_generator = datagen.flow_from_directory(
+    data_dir,
+    target_size=img_size,
+    batch_size=batch_size,
+    class_mode='sparse',
+    subset="validation",
+    shuffle=False
+)
+def extract_features(generator):
+    features = []
+    labels = []
+    total_batches = int(np.ceil(generator.samples / batch_size))
+    for i in range(total_batches):
+        imgs, lbls = next(generator)
+        feats = feature_extractor.predict(imgs)
+        features.append(feats)
+        labels.append(lbls)
+    features = np.vstack(features)
+    labels = np.hstack(labels)
+    return features, labels
+
+print("Extracting training features...")
+train_features, train_labels = extract_features(train_generator)
+
+print("Extracting validation features...")
+val_features, val_labels = extract_features(val_generator)
+
+print("Training SVM classifier...")
+svm = SVC(kernel="rbf", C=1.0, gamma="scale")
+svm.fit(train_features, train_labels)
+
+train_preds = svm.predict(train_features)
+val_preds = svm.predict(val_features)
+
+train_acc = accuracy_score(train_labels, train_preds)
+val_acc = accuracy_score(val_labels, val_preds)
+
+print(f"Training Accuracy: {train_acc:.2f}")
+print(f"Validation Accuracy: {val_acc:.2f}")
